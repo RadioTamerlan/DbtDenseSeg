@@ -1,0 +1,9 @@
+# weights are hosted on Hugging Face, not in git (too large)
+weights/*.pt
+# python / outputs
+__pycache__/
+*.pyc
+**/model prediction/
+examples/data/
+*.log
+.DS_Store

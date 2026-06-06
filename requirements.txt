@@ -1,0 +1,14 @@
+# pip fallback (prefer environment.yml -> conda env "RadDad")
+torch==2.3.1
+monai==1.3.0
+transformers==4.45.2
+pydicom==2.4.4
+nibabel
+numpy
+scipy
+scikit-image
+opencv-python-headless
+einops
+pillow
+tqdm
+huggingface_hub
