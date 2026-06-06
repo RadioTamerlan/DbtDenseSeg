@@ -12,7 +12,7 @@ They are **not** stored in git (too large). Get them one of two ways:
 
 **A. Hugging Face (recommended)**
 ```bash
-export DBTDENSESEG_HF_REPO="<your-username>/DbtDenseSeg-weights"
+export DBTDENSESEG_HF_REPO="RadioTamerlan/DbtDenseSeg-weights"
 export HF_TOKEN="hf_xxx"      # only if the HF repo is private
 python ../get_weights.py
 ```

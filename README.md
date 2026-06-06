@@ -19,7 +19,7 @@ conda env create -f environment.yml
 conda activate RadDad
 
 # 2) get the model weights (see weights/README.md)
-export DBTDENSESEG_HF_REPO="<your-username>/DbtDenseSeg-weights"
+export DBTDENSESEG_HF_REPO="RadioTamerlan/DbtDenseSeg-weights"
 export HF_TOKEN="hf_xxx"          # only if the weights repo is private
 python get_weights.py
 
