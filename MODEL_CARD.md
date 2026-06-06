@@ -9,6 +9,34 @@ ensemble = dense ∩ area ∩ ¬muscle
 i.e. dense-tissue predictions, constrained to the breast area and with pectoral
 muscle removed.
 
+**Dimensionality:** the **dense** model is **3D** (SwinUNETR over the whole
+reconstructed volume); the **area** and **muscle** models are **2D** (SegFormer
+applied slice-by-slice).
+
+**What "ensemble" means here:** the three models run independently, then their
+binary masks are combined per voxel — a dense voxel is kept only if it also lies
+inside the predicted breast **area** and outside the predicted **muscle**
+(`dense AND area AND NOT muscle`). This removes the two dominant dense-only error
+modes: false positives outside the breast, and on the pectoral muscle (MLO/ML).
+
+## Ground-truth generation
+Training/validation reference masks (dense, area, muscle) were produced with a
+**semi-automated segmentation** workflow — an automated initial segmentation that
+is then reviewed and corrected by an expert — described in our paper:
+
+> **TODO_CITATION** — *paste the exact arXiv title + link/ID here*
+> (semi-automated segmentation method for DBT).
+
+The 2D models additionally use FFDM images whose breast-area and density labels
+are encoded in the image channels.
+
+## Algorithms (summary)
+- **2D (area, muscle):** transfer learning with **SegFormer-B2** (a pretrained
+  hierarchical-transformer segmenter), fine-tuned per task with **anatomy-aware**
+  losses (below).
+- **3D (dense):** **SwinUNETR** (a Swin-transformer 3D U-Net, MONAI), trained from
+  random init with a generalized-Dice + cross-entropy loss.
+
 ## Architectures, inputs, and training data
 
 | Model | Arch | Dim | Input it sees | Training data |
