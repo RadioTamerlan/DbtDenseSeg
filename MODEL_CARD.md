@@ -24,8 +24,11 @@ Training/validation reference masks (dense, area, muscle) were produced with a
 **semi-automated segmentation** workflow — an automated initial segmentation that
 is then reviewed and corrected by an expert — described in our paper:
 
-> **TODO_CITATION** — *paste the exact arXiv title + link/ID here*
-> (semi-automated segmentation method for DBT).
+> Mustafaev T, Kruglov O, Zuley M, de Mero Omena L, Muniz de Oliveira G,
+> de Sousa Franca V, Barufaldi B, Nishikawa R, Lee J.
+> *"A Workflow to Efficiently Generate Dense Tissue Ground Truth Masks for
+> Digital Breast Tomosynthesis."* arXiv:2604.11927.
+> https://arxiv.org/abs/2604.11927
 
 The 2D models additionally use FFDM images whose breast-area and density labels
 are encoded in the image channels.
