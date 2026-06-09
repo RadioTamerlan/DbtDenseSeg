@@ -8,26 +8,50 @@ and writes the original + predicted masks next to each input.
 **Architectures, training, loss functions, and external DBTex performance (with
 plots): see [MODEL_CARD.md](MODEL_CARD.md).**
 
-## Setup (a few lines)
+## Prerequisites (Linux / Windows / macOS)
+- **Miniconda or Anaconda** — https://docs.conda.io/en/latest/miniconda.html
+- **git**
+- Disk: ~3 GB (conda env) + ~1.4 GB (weights)
+- GPU optional. With an NVIDIA GPU it uses CUDA automatically; otherwise it runs
+  on **CPU** (slower — the 3D model takes minutes/volume and ~8–16 GB RAM).
+
+## Setup
 
 ```bash
-git clone <your-private-repo-url> DbtDenseSeg
+git clone https://github.com/RadioTamerlan/DbtDenseSeg.git
 cd DbtDenseSeg
 
-# 1) create the conda env (named "RadDad")
+# 1) create the conda env (named "RadDad") — Linux / Windows / macOS
 conda env create -f environment.yml
 conda activate RadDad
 
-# 2) get the model weights (see weights/README.md)
-export DBTDENSESEG_HF_REPO="RadioTamerlan/DbtDenseSeg-weights"
-export HF_TOKEN="hf_xxx"          # only if the weights repo is private
+# 2) set your Hugging Face read token (the weights repo is private), then download
 python get_weights.py
 
 # 3) run
 python dbtdenseseg/run_pipeline.py --input /path/to/patients --format both
 ```
 
-No GPU? add `--device cpu` (works, slower).
+### Setting the HF token (step 2) — per shell
+The weights repo id is already the default; you just need a **read** token:
+
+| Shell | command |
+|---|---|
+| Linux / macOS (bash/zsh) | `export HF_TOKEN=hf_xxx` |
+| Windows PowerShell | `$env:HF_TOKEN="hf_xxx"` |
+| Windows cmd | `set HF_TOKEN=hf_xxx` |
+
+(Same syntax for the optional `DBTDENSESEG_HF_REPO` / `DBTDENSESEG_WEIGHTS` /
+`CUDA_VISIBLE_DEVICES` variables.)
+
+## Platform notes
+- **Linux / Windows + NVIDIA GPU:** `pip` installs a CUDA PyTorch build; runs on
+  GPU with `--device auto`.
+- **macOS / no NVIDIA GPU:** runs on **CPU** (`--device cpu` or `auto`). Works,
+  but the 3D dense model is slow and memory-heavy.
+- **Windows console:** the progress bar auto-switches to ASCII if your terminal
+  can't render emoji. For the full ⛏️ bar use Windows Terminal or set
+  `PYTHONUTF8=1`.
 
 ## Input layout
 A root folder of patient subfolders; each series is a NIfTI file **or** a DICOM
