@@ -70,6 +70,21 @@ patients/
 View (CC vs MLO/ML) comes from DICOM `ViewPosition` or a `_CC`/`_MLO` token in
 the name; it only gates the muscle model (run on MLO/ML, skipped on CC).
 
+## Preprocessing DICOM (optional — recommended for messy data)
+If your DICOMs are **split into one file per slice**, or the **view is missing
+from `ViewPosition`**, run this first. It assembles each series into a single
+NIfTI and **bakes the detected view into the file name**:
+
+```bash
+python dbtdenseseg/preprocess_dicom.py --input <dicom root> --out <nifti root>
+python dbtdenseseg/run_pipeline.py     --input <nifti root> --format both
+```
+View + laterality are detected from **many** headers (`ViewPosition`,
+`ViewCodeSequence`, `SeriesDescription`/`ProtocolName`/…), then the folder/file
+name, then image content — and written into the filename (e.g. `…_L_MLO.nii.gz`),
+so the pipeline reads the view straight from the name. `--default-view CC` sets a
+fallback when nothing is found.
+
 ## Output
 For each series → `<series folder>/model prediction/`:
 ```
@@ -113,7 +128,7 @@ Env vars: `DBTDENSESEG_WEIGHTS` (weights folder), `CUDA_VISIBLE_DEVICES` (pick G
 
 ## Layout
 ```
-dbtdenseseg/   run_pipeline.py, calculate_pd.py, inference.py, io_volume.py, minerbar.py,
+dbtdenseseg/   run_pipeline.py, preprocess_dicom.py, calculate_pd.py, inference.py, io_volume.py, minerbar.py,
                harmonize_dbt.py, models2d.py, models3d.py, dbt_seg_lib.py, area2d_lib.py
 weights/       area.pt, muscle.pt, dense.pt  (downloaded, not in git)
 environment.yml / requirements.txt / get_weights.py
