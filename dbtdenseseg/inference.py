@@ -127,18 +127,20 @@ def run_series(vol_canon, view, models, device, threshold=0.5, z_sigma=1.0):
     m_m, m_ts, m_cl = models["muscle"]
     d_m, d_roi = models["dense"]
 
+    # free each full-resolution float probability array as soon as it is
+    # thresholded, so peak RAM holds at most ONE big float volume at a time.
     area = smooth_z_gaussian(predict_2d(a_m, vol_canon, device, a_ts, amp, a_cl, desc="area"), z_sigma)
-    area_bin = (area > threshold).astype(np.uint8)
+    area_bin = (area > threshold).astype(np.uint8); del area
 
     run_muscle = str(view).upper() in ("MLO", "ML")          # anatomy gating only
     if run_muscle:
         musc = smooth_z_gaussian(predict_2d(m_m, vol_canon, device, m_ts, amp, m_cl, desc="muscle"), z_sigma)
-        musc_bin = (musc > threshold).astype(np.uint8)
+        musc_bin = (musc > threshold).astype(np.uint8); del musc
     else:
         musc_bin = np.zeros_like(area_bin)
 
     dense = predict_dense(d_m, vol_canon, device, d_roi, amp)
-    dense_bin = (dense > threshold).astype(np.uint8)
+    dense_bin = (dense > threshold).astype(np.uint8); del dense
 
     ens_bin = (dense_bin & area_bin & (1 - musc_bin)).astype(np.uint8)
     return dict(area=area_bin, muscle=musc_bin, dense=dense_bin, ensemble=ens_bin,

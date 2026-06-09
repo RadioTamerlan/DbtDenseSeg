@@ -21,7 +21,7 @@ Examples:
   python run_pipeline.py --input /data/ge_study --format dcm --harmonize --ref hologic_reference.npz
 """
 from __future__ import annotations
-import argparse, os, sys, time, traceback, warnings
+import argparse, gc, os, sys, time, traceback, warnings
 
 # quiet the library noise (HF head-shape notice, monai/pkg_resources deprecation)
 warnings.filterwarnings("ignore")
@@ -137,6 +137,9 @@ def main():
             tqdm.write(f"      done in {time.time()-ts:.0f}s  vox: dense={int(masks['dense'].sum())} "
                        f"area={int(masks['area'].sum())} muscle={int(masks['muscle'].sum())} "
                        f"ensemble={int(masks['ensemble'].sum())}  -> {outroot}\n")
+            # release this series' big arrays before reading the next one
+            del masks, vol_canon, infer_in
+            gc.collect()
         except Exception as e:
             fail += 1
             tqdm.write(f"[{i}/{N}] {patient} / {stem_of(item)}  FAILED: {e}")
