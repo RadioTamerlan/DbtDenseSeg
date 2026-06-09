@@ -8,6 +8,9 @@ and writes the original + predicted masks next to each input.
 **Architectures, training, loss functions, and external DBTex performance (with
 plots): see [MODEL_CARD.md](MODEL_CARD.md).**
 
+**Model weights (private):** [huggingface.co/RadioTamerlan/DbtDenseSeg-weights](https://huggingface.co/RadioTamerlan/DbtDenseSeg-weights)
+— fetched by `get_weights.py` (needs an HF read token).
+
 ## Prerequisites (Linux / Windows / macOS)
 - **Miniconda or Anaconda** — https://docs.conda.io/en/latest/miniconda.html
 - **git**
@@ -76,6 +79,20 @@ For each series → `<series folder>/model prediction/`:
 ```
 `--format` selects `nii` / `dcm` / `both`.
 
+## Percent density (PD)
+After running the pipeline (with `--format nii` or `both`), compute breast percent
+density — analogous to TomoLIBRA's VBD:
+
+```bash
+python dbtdenseseg/calculate_pd.py --input /path/to/patients --out density.csv
+```
+`PD% = 100 · dense / breast`, where **dense** = ensemble mask and
+**breast** = area ∩ ¬muscle (pectoral muscle excluded). Spacing cancels, so PD
+needs no calibration. Absolute dense volume (**ADV**, cm³) is also written when the
+NIfTI carries real voxel spacing (default volumes use 1×1×1 placeholder spacing, so
+ADV is in placeholder units there). Output columns: `patient, series, dense_voxels,
+breast_voxels, PD_percent, voxel_volume_mm3, ADV_cm3`.
+
 ## Options
 | flag | default | meaning |
 |---|---|---|
@@ -96,7 +113,7 @@ Env vars: `DBTDENSESEG_WEIGHTS` (weights folder), `CUDA_VISIBLE_DEVICES` (pick G
 
 ## Layout
 ```
-dbtdenseseg/        run_pipeline.py, inference.py, io_volume.py, minerbar.py,
+dbtdenseseg/   run_pipeline.py, calculate_pd.py, inference.py, io_volume.py, minerbar.py,
                harmonize_dbt.py, models2d.py, models3d.py, dbt_seg_lib.py, area2d_lib.py
 weights/       area.pt, muscle.pt, dense.pt  (downloaded, not in git)
 environment.yml / requirements.txt / get_weights.py
