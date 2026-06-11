@@ -91,6 +91,8 @@ def main():
     ap.add_argument("--threshold", type=float, default=0.5)
     ap.add_argument("--harmonize", action="store_true", help="apply intensity harmonization to Hologic ref")
     ap.add_argument("--ref", default=None, help="hologic_reference.npz (required with --harmonize)")
+    ap.add_argument("--only-3d", action="store_true",
+                    help="process only 3D volumes; skip 2D images")
     args = ap.parse_args()
 
     device = I.pick_device(args.device)
@@ -109,7 +111,7 @@ def main():
         print(f"  - {os.path.relpath(it['series_dir'], args.input)}/{stem_of(it)}  [{it['kind']}]")
     print()
 
-    ok = fail = 0
+    ok = fail = skipped = 0
     t0 = time.time()
     for i, item in enumerate(mine(series, desc="mining patients"), 1):
         patient = os.path.relpath(item["series_dir"], args.input).split(os.sep)[0]
@@ -117,6 +119,11 @@ def main():
             ts = time.time()
             vol_canon, meta = V.read_series(item)
             view = meta["view"]; is_3d = meta["is_3d"]
+            if args.only_3d and not is_3d:               # filtering: 3D-only
+                skipped += 1
+                tqdm.write(f"[{i}/{N}] {patient} / {stem_of(item)}  (2D) -> skipped (--only-3d)")
+                del vol_canon; gc.collect()
+                continue
             muscle_on = str(view).upper() in ("MLO", "ML")
             used = (["dense(3D)"] if is_3d else []) + ["area(2D)"] + (["muscle(2D)"] if muscle_on else [])
             steps = (["reorient DICOM->model"] if item["kind"] == "dcm" else []) + ["intensity/1023"]
@@ -145,7 +152,7 @@ def main():
             tqdm.write(f"[{i}/{N}] {patient} / {stem_of(item)}  FAILED: {e}")
             traceback.print_exc()
 
-    print(f"Done. {ok} ok, {fail} failed, {N} total in {time.time()-t0:.0f}s.", flush=True)
+    print(f"Done. {ok} ok, {skipped} skipped (2D), {fail} failed, {N} total in {time.time()-t0:.0f}s.", flush=True)
 
 
 if __name__ == "__main__":

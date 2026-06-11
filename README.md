@@ -119,6 +119,7 @@ breast_voxels, PD_percent, voxel_volume_mm3, ADV_cm3`.
 | `--threshold` | `0.5` | probability threshold for all masks |
 | `--harmonize` | off | intensity histogram-match to a Hologic reference (GE/Siemens) |
 | `--ref` | — | `hologic_reference.npz` (required with `--harmonize`) |
+| `--only-3d` | off | process only 3D volumes; **skip 2D** images |
 
 Env vars: `DBTDENSESEG_WEIGHTS` (weights folder), `CUDA_VISIBLE_DEVICES` (pick GPU).
 
