@@ -59,7 +59,7 @@ def read_series(item):
     """Return (vol[Z,H,W] float32, meta). meta carries affine, view, flip_axes, vendor, source."""
     if item["kind"] == "nii":
         nii = nib.load(item["payload"])
-        vol = np.asarray(nii.dataobj, dtype=np.float32)
+        vol = to_zhw_gray(np.asarray(nii.dataobj, dtype=np.float32))
         aff = np.asarray(nii.affine, dtype=np.float64)
         flip_axes = [ax for ax in range(3)
                      if np.sign(np.diag(aff)[ax]) not in (0,)
@@ -70,6 +70,7 @@ def read_series(item):
         vol_canon = np.ascontiguousarray(vol_canon)
         meta = dict(kind="nii", affine=aff, flip_axes=flip_axes,
                     view=_view_from_name(item["ident"]), vendor="unknown",
+                    is_3d=vol_canon.shape[0] > 1,
                     laterality=content_laterality(vol_canon),
                     pixel_spacing=[round(float(x), 3) for x in nii.header.get_zooms()[:2]],
                     slice_spacing=round(float(nii.header.get_zooms()[2]), 3) if nii.ndim >= 3 else 1.0,
@@ -78,11 +79,17 @@ def read_series(item):
     else:  # dicom
         vol, m = read_dicom_series(item["payload"][0] if len(item["payload"]) == 1
                                    else os.path.dirname(item["payload"][0]))
-        vol = dcm_to_model(vol).astype(np.float32)   # acquisition -> model/training orientation
+        vol = dcm_to_model(to_zhw_gray(vol)).astype(np.float32)   # -> model/training orientation
+        try:    # robust multi-header view/laterality (ViewCodeSequence, SeriesDescription, ...)
+            from preprocess_dicom import detect_view_laterality
+            lat2, view2, _ = detect_view_laterality(item["payload"], item["series_dir"], vol)
+        except Exception:
+            lat2 = view2 = None
         meta = dict(kind="dcm", affine=np.diag([1.0, 1.0, 1.0, 1.0]), flip_axes=[],
-                    view=(m.get("view") or _view_from_name(item["series_dir"])),
+                    view=(m.get("view") or view2 or _view_from_name(item["series_dir"])),
                     vendor=(m.get("vendor") or "unknown"),
-                    laterality=(m.get("header_laterality") or content_laterality(vol)),
+                    is_3d=vol.shape[0] > 1,
+                    laterality=(m.get("header_laterality") or lat2 or content_laterality(vol)),
                     pixel_spacing=m.get("pixel_spacing", [1.0, 1.0]),
                     slice_spacing=m.get("slice_spacing", 1.0),
                     source=item["payload"], source_template=item["payload"][0])
@@ -106,6 +113,23 @@ def dcm_to_model(v):
 def model_to_dcm(v):
     """model/training orientation -> DICOM acquisition orientation (inverse of dcm_to_model)."""
     return np.ascontiguousarray(np.swapaxes(v[:, ::-1, :], 1, 2))
+
+
+def to_zhw_gray(a):
+    """Normalize any loaded array to a single-channel (Z, H, W) float32 volume.
+    Handles 2D images (H,W)->(1,H,W), RGB(A) (H,W,3/4) or (Z,H,W,3/4)->luminance,
+    and other 4D arrays. A genuine 3-slice DBT volume (3,H,W) is left intact."""
+    a = np.asarray(a, dtype=np.float32)
+    if a.ndim == 2:                                   # single 2D image
+        a = a[None]
+    elif a.ndim == 3 and a.shape[-1] in (3, 4) and a.shape[0] not in (3, 4):
+        a = a[..., :3].mean(-1)[None]                 # (H,W,3) RGB -> (1,H,W)
+    elif a.ndim == 4:
+        if a.shape[-1] in (3, 4):                     # (Z,H,W,3) -> (Z,H,W)
+            a = a[..., :3].mean(-1)
+        else:
+            a = a.reshape(a.shape[0], a.shape[1], a.shape[2])
+    return np.ascontiguousarray(a)
 
 
 # --------------------------------------------------------------------------- #

@@ -116,21 +116,21 @@ def main():
         try:
             ts = time.time()
             vol_canon, meta = V.read_series(item)
-            view = meta["view"]
+            view = meta["view"]; is_3d = meta["is_3d"]
             muscle_on = str(view).upper() in ("MLO", "ML")
+            used = (["dense(3D)"] if is_3d else []) + ["area(2D)"] + (["muscle(2D)"] if muscle_on else [])
             steps = (["reorient DICOM->model"] if item["kind"] == "dcm" else []) + ["intensity/1023"]
             if ref is not None:
                 steps.append("harmonize->Hologic")
-            tqdm.write(f"[{i}/{N}] {patient} / {stem_of(item)}  ({item['kind'].upper()})")
+            tqdm.write(f"[{i}/{N}] {patient} / {stem_of(item)}  ({item['kind'].upper()}, {'3D' if is_3d else '2D'})")
             tqdm.write(f"      dims(Z,H,W)={tuple(vol_canon.shape)}  view={view}  "
-                       f"laterality={meta.get('laterality','?')}  vendor={meta.get('vendor','?')}  "
-                       f"spacing={meta.get('pixel_spacing')}x{meta.get('slice_spacing')}")
-            tqdm.write(f"      preprocess: {', '.join(steps)}; muscle={'ON' if muscle_on else 'OFF (CC)'}  -> analyzing...")
+                       f"laterality={meta.get('laterality','?')}  vendor={meta.get('vendor','?')}")
+            tqdm.write(f"      models: {', '.join(used)}{'' if is_3d else '  (2D -> 3D dense skipped)'}  -> analyzing...")
             infer_in = vol_canon
             if ref is not None:
                 from harmonize_dbt import normalize_intensity
                 infer_in = normalize_intensity(vol_canon, ref)     # intensity only
-            masks = I.run_series(infer_in, view, models, device, threshold=args.threshold)
+            masks = I.run_series(infer_in, view, models, device, threshold=args.threshold, is_3d=is_3d)
             outroot = os.path.join(item["series_dir"], V.PRED_DIR)
             write_outputs(item, meta, vol_canon, masks, outroot, args.format)
             ok += 1

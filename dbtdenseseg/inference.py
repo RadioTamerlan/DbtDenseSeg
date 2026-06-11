@@ -107,6 +107,27 @@ def predict_2d(model, vol, device, target_size, amp, clahe, desc="2D slices"):
 
 
 @torch.no_grad()
+def predict_2d_binary(model, vol, device, target_size, amp, clahe, threshold, desc="2D"):
+    """Per-slice 2D prediction thresholded to uint8 **on the fly** — never builds a
+    full-resolution float volume, so RAM stays low (one slice at a time)."""
+    Z, H, W = vol.shape
+    out = np.zeros((Z, H, W), np.uint8)
+    for z in mine(range(Z), desc=f"mining {desc} slices", leave=False):
+        sl = _resize_slice(vol[z], target_size, "BILINEAR")
+        sl = np.clip(sl / PIX_MAX, 0, 1).astype(np.float32)
+        if clahe:
+            sl = apply_clahe(sl).astype(np.float32)
+        x = torch.from_numpy(sl[None, None]).to(device)
+        with _autocast(device, amp):
+            logits = model(x)
+        prob = torch.sigmoid(logits[0, 0]).float().cpu().numpy()
+        prob_full = np.asarray(PILImage.fromarray((prob * 255).astype(np.uint8)).resize(
+            (W, H), PILImage.BILINEAR), np.float32) / 255.0
+        out[z] = (prob_full > threshold).astype(np.uint8)
+    return out
+
+
+@torch.no_grad()
 def predict_dense(model, vol, device, roi, amp):
     from monai.inferers import sliding_window_inference
     img = np.clip(vol / PIX_MAX, 0, 1).astype(np.float32)
@@ -120,28 +141,26 @@ def predict_dense(model, vol, device, roi, amp):
 
 
 # --------------------------------------------------------------------------- #
-def run_series(vol_canon, view, models, device, threshold=0.5, z_sigma=1.0):
-    """vol_canon: (Z,H,W) in training intensity convention. Returns dict of uint8 masks."""
+def run_series(vol_canon, view, models, device, threshold=0.5, is_3d=True):
+    """vol_canon: (Z,H,W). 2D models run per-slice and threshold straight to uint8
+    (low RAM). The 3D dense model runs only for 3D inputs (Z>1); a 2D image gets
+    area + muscle only (the 3D dense model does not apply)."""
     amp = device.type == "cuda"
     a_m, a_ts, a_cl = models["area"]
     m_m, m_ts, m_cl = models["muscle"]
     d_m, d_roi = models["dense"]
 
-    # free each full-resolution float probability array as soon as it is
-    # thresholded, so peak RAM holds at most ONE big float volume at a time.
-    area = smooth_z_gaussian(predict_2d(a_m, vol_canon, device, a_ts, amp, a_cl, desc="area"), z_sigma)
-    area_bin = (area > threshold).astype(np.uint8); del area
-
+    area_bin = predict_2d_binary(a_m, vol_canon, device, a_ts, amp, a_cl, threshold, "area")
     run_muscle = str(view).upper() in ("MLO", "ML")          # anatomy gating only
-    if run_muscle:
-        musc = smooth_z_gaussian(predict_2d(m_m, vol_canon, device, m_ts, amp, m_cl, desc="muscle"), z_sigma)
-        musc_bin = (musc > threshold).astype(np.uint8); del musc
-    else:
-        musc_bin = np.zeros_like(area_bin)
+    musc_bin = (predict_2d_binary(m_m, vol_canon, device, m_ts, amp, m_cl, threshold, "muscle")
+                if run_muscle else np.zeros_like(area_bin))
 
-    dense = predict_dense(d_m, vol_canon, device, d_roi, amp)
-    dense_bin = (dense > threshold).astype(np.uint8); del dense
-
-    ens_bin = (dense_bin & area_bin & (1 - musc_bin)).astype(np.uint8)
+    if is_3d:
+        dprob = predict_dense(d_m, vol_canon, device, d_roi, amp)
+        dense_bin = (dprob > threshold).astype(np.uint8); del dprob
+        ens_bin = (dense_bin & area_bin & (1 - musc_bin)).astype(np.uint8)
+    else:                                                     # 2D image
+        dense_bin = np.zeros_like(area_bin)                   # 3D dense N/A
+        ens_bin = (area_bin & (1 - musc_bin)).astype(np.uint8)  # breast region
     return dict(area=area_bin, muscle=musc_bin, dense=dense_bin, ensemble=ens_bin,
-                muscle_ran=run_muscle)
+                muscle_ran=run_muscle, is_3d=is_3d)

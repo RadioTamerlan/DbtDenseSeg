@@ -121,6 +121,9 @@ breast_voxels, PD_percent, voxel_volume_mm3, ADV_cm3`.
 Env vars: `DBTDENSESEG_WEIGHTS` (weights folder), `CUDA_VISIBLE_DEVICES` (pick GPU).
 
 ## Notes
+- **2D vs 3D is auto-detected.** 3D Tomosynthesis volumes get the full pipeline
+  (dense + area + muscle + ensemble); 2D images (single-frame, e.g. synthetic/FFDM
+  mammograms) get **area + muscle only** — the 3D dense model is skipped.
 - Models were trained on **Hologic** DBT. DICOM is auto-reoriented to the training
   plane; for **GE/Siemens** use `--harmonize` (see `dbtdenseseg/harmonize_dbt.py`).
 - DICOM masks are written as **Secondary Capture** (overlay-able), not DICOM-SEG.
