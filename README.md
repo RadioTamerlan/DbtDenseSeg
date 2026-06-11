@@ -67,8 +67,10 @@ patients/
     seriesX/ *.dcm           # OR a DICOM series
 ```
 
-View (CC vs MLO/ML) comes from DICOM `ViewPosition` or a `_CC`/`_MLO` token in
-the name; it only gates the muscle model (run on MLO/ML, skipped on CC).
+View (CC vs MLO/ML) is detected **robustly from many DICOM headers**
+(`ViewPosition`, `ViewCodeSequence`, `SeriesDescription`, `ProtocolName`, …),
+then the folder/file name — so it works even when `ViewPosition` is empty (common
+on Hologic). It only gates the muscle model (run on MLO/ML, skipped on CC).
 
 ## Preprocessing DICOM (optional — recommended for messy data)
 If your DICOMs are **split into one file per slice**, or the **view is missing
@@ -128,6 +130,11 @@ Env vars: `DBTDENSESEG_WEIGHTS` (weights folder), `CUDA_VISIBLE_DEVICES` (pick G
   plane; for **GE/Siemens** use `--harmonize` (see `dbtdenseseg/harmonize_dbt.py`).
 - DICOM masks are written as **Secondary Capture** (overlay-able), not DICOM-SEG.
 - Requires internet on first run to fetch the SegFormer-B2 base from Hugging Face.
+- **Memory:** results are written **per series, as each finishes** (not buffered to
+  the end), and the 2D models threshold each slice to `uint8` on the fly instead of
+  building full-resolution float volumes — so RAM stays bounded even on large
+  4096-wide studies. (The 3D dense model still needs the whole volume in memory for
+  one series at a time — inherent to 3D sliding-window inference.)
 
 ## Layout
 ```
